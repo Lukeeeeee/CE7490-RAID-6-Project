@@ -3,14 +3,14 @@ class RaidController(object):
         self.raid_level = raid_level
         pass
 
-    def read_file(self):
+    def read_file(self, *args, **kwargs):
         raise NotImplementedError
 
-    def compute_parity(self):
+    def compute_parity(self, *args, **kwargs):
         raise NotImplementedError
 
-    def check_corruption(self):
+    def check_corruption(self, *args, **kwargs):
         raise NotImplementedError
 
-    def recover_disk(self):
+    def recover_disk(self, *args, **kwargs):
         raise NotImplementedError
