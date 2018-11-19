@@ -67,20 +67,6 @@ class GaloisField(object):
         '''
         return np.bitwise_xor.reduce(add_list)
 
-    def non_table_multiply(self, p1, p2):
-        """Multiply two polynomials in GF(2^N)/g(x)
-        :param p1: multipler
-        :param p2: multiplier
-        """
-        p = 0
-        while p2:
-            if p2 & 1:
-                p ^= p1
-            p1 <<= 1
-            if p1 & self.mask1:
-                p1 ^= self.polyred
-            p2 >>= 1
-        return p & self.mask2
 
     def power(self, a, n):
         """
