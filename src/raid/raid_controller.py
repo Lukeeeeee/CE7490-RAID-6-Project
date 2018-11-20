@@ -1,9 +1,10 @@
 class RaidController(object):
-    def __init__(self, raid_level, disk_list, file_path):
+    def __init__(self, raid_level, disk_list):
         self.raid_level = raid_level
+        self.disk_list = disk_list
         pass
 
-    def read_file(self, *args, **kwargs):
+    def write_file(self, *args, **kwargs):
         raise NotImplementedError
 
     def compute_parity(self, *args, **kwargs):

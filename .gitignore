@@ -104,4 +104,4 @@ venv.bak/
 .mypy_cache/
 .idea/
 log/
-!log/*.py
+!log/__init__.py
