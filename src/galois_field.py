@@ -19,6 +19,9 @@ class GaloisField(object):
         self.n_data_disk = num_data_disk
         self.n_checksum = num_checksum
         self.x_to_w = 1 << self.GF_W
+        self.gflog = np.zeros((self.x_to_w,), dtype=int)
+        self.gfilog = np.zeros((self.x_to_w,), dtype=int)
+        self.vandermond = np.zeros((self.n_checksum, self.n_data_disk), dtype=int)
         self.gen_log_table()
         self.gen_vandermond()
 
@@ -26,8 +29,6 @@ class GaloisField(object):
         '''
             generate log table and inverse log table in GF
         '''
-        self.gflog = np.zeros((self.x_to_w,), dtype=int)
-        self.gfilog = np.zeros((self.x_to_w,), dtype=int)
         b = 1
         for alog in range(self.x_to_w - 1):
             self.gflog[b] = alog
@@ -44,20 +45,23 @@ class GaloisField(object):
         if a == 0 or b == 0:
             return 0
         sum_log = self.gflog[a] + self.gflog[b]
-        if (sum_log >= self.x_to_w - 1):
-            sum_log -= self.x_to_w - 1;
-        return self.gfilog[sum_log];
+        if sum_log >= self.x_to_w - 1:
+            sum_log -= self.x_to_w - 1
+        return self.gfilog[sum_log]
 
     def devide(self, a, b):
         '''
             multiply in GF by log table
             return a / b
         '''
-        if (a == 0): return 0
-        if (b == 0): return -1  # Can’t divide by 0
-        diff_log = self.gflog[a] - self.gflog[b];
-        if (diff_log < 0): diff_log += self.x_to_w - 1;
-        return self.gfilog[diff_log];
+        if a == 0:
+            return 0
+        if b == 0:
+            return -1  # Can’t divide by 0
+        diff_log = self.gflog[a] - self.gflog[b]
+        if diff_log < 0:
+            diff_log += self.x_to_w - 1
+        return self.gfilog[diff_log]
 
     def add(self, add_list):
         '''
@@ -66,7 +70,6 @@ class GaloisField(object):
             return the XOR result of the input list
         '''
         return np.bitwise_xor.reduce(add_list)
-
 
     def power(self, a, n):
         """
@@ -84,7 +87,6 @@ class GaloisField(object):
         '''
         input: n = data disk number, m = parity disk number
         '''
-        self.vandermond = np.zeros((self.n_checksum, self.n_data_disk), dtype=int)
         for i in range(self.n_checksum):
             for j in range(self.n_data_disk):
                 self.vandermond[i][j] = self.power(j, i)
@@ -106,10 +108,10 @@ class GaloisField(object):
         '''
         generate matrix A concatenated by n x n identity matrix and vandermond matrix
         '''
-        mat_A = np.concatenate((np.eye(self.n_data_disk, self.n_data_disk, dtype=int), self.vandermond), axis=0)
-        return mat_A
+        mat_a = np.concatenate((np.eye(self.n_data_disk, self.n_data_disk, dtype=int), self.vandermond), axis=0)
+        return mat_a
 
-    def recover_matrix(self, mat_A, vec_E, corrupt_index):
+    def recover_matrix(self, mat_a, vec_e, corrupt_index):
         '''
         delete rows in A and E to get new matrix for recovery
         A : concatenated matrix
@@ -117,16 +119,16 @@ class GaloisField(object):
         '''
         if len(corrupt_index) > self.n_checksum:
             raise ValueError('corrupted disk number can not be greater than checksum number')
-        mat_A = np.delete(mat_A, corrupt_index, axis=0)
-        vec_E = np.delete(vec_E, corrupt_index)
+        mat_a = np.delete(mat_a, corrupt_index, axis=0)
+        vec_e = np.delete(vec_e, corrupt_index)
         if len(corrupt_index) == self.n_checksum:
-            return mat_A, vec_E
+            return mat_a, vec_e
         else:
             for i in range(self.n_checksum - len(corrupt_index)):
-                rand_index = np.random.randint(len(vec_E))
-                mat_A = np.delete(mat_A, rand_index, axis=0)
-                vec_E = np.delete(vec_E, rand_index)
-            return mat_A, vec_E
+                rand_index = np.random.randint(len(vec_e))
+                mat_a = np.delete(mat_a, rand_index, axis=0)
+                vec_e = np.delete(vec_e, rand_index)
+            return mat_a, vec_e
 
     @staticmethod
     def i2P(sInt):
