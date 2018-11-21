@@ -55,16 +55,17 @@ class GaloisField(object):
             sum_log -= self.x_to_w - 1
         return self.gfilog[sum_log]
 
-    def multiply_with_vec_a(self, a, b):
+    def multiply_with_vec(self, a, b):
         """
         Function to multiply a: vector and b in GF by log table
         :param a: vector multiplier
         :param b: multiplier
         :return: a x b in GF
         """
-        int_a = [ord(data_i) for data_i in a]
+
+        # int_a = [ord(data_i) for data_i in a]
         res = []
-        for a_i, b_i in zip(int_a, b):
+        for a_i, b_i in zip(a, b):
             res.append(self.multiply(a_i, b_i))
         return self.add(res)
 
@@ -122,13 +123,16 @@ class GaloisField(object):
         :param data: 1d array of data bytes
         :return:  1d array of checksums
         """
-        result = []
+        result_char = []
+        result_int = []
         for i in range(self.n_checksum):
             vector = []
             for j in range(data.shape[1]):
-                vector.append(self.multiply_with_vec_a(data[:, j], self.vandermond[i]))
-            result.append([chr(v_) for v_ in vector])
-        return np.array(result)
+                vector.append(self.multiply_with_vec(data[:, j], self.vandermond[i]))
+            result_int.append(vector)
+            result_char.append([chr(v_) for v_ in vector])
+
+        return np.array(result_int), np.array(result_char)
 
     def gen_matrix_A(self):
         """

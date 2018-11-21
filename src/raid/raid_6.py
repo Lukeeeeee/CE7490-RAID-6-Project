@@ -9,6 +9,7 @@ import numpy as np
 import functools
 import os
 import concurrent.futures
+from src.util import Logger
 
 
 class RAID_6(RaidController):
@@ -23,6 +24,8 @@ class RAID_6(RaidController):
             self.gf = gf
         self.encode_matrix = self._generate_encode_matrix(identity_num=self.config.data_disk_count,
                                                           check_sum_matrix=self.gf.vandermond)
+        self.parity_int = None
+        self.parity_char = None
 
     def write_file(self, data_block_list):
         """
@@ -50,22 +53,36 @@ class RAID_6(RaidController):
         :return: Data from all the disks
         """
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.disk_count) as executor:
-            res = np.array(executor.map(Disk.read_from_disk, self.disk_list))
+            res = list(executor.map(Disk.read_from_disk, self.disk_list))
 
-        non_padding_length = min(np.count_nonzero(np.array(res), axis=1))
-        non_padding_res = np.array([res[i][0:non_padding_length] for i in range(res.shape[0])])
+        res = self._byte_to_int_all_disk(res, data_disk_count=self.config.data_disk_count)
+        data_disks = np.array(res)[0:self.config.data_disk_count]
+        non_padding_length = len(data_disks[0])
+        for data in data_disks:
+            non_padding_length = min(non_padding_length, np.count_nonzero(data))
+        non_padding_res = np.array([res[i][0:non_padding_length] for i in range(len(res))])
         return non_padding_res
 
     def compute_parity(self, data):
-        res = self.gf.gen_parity(data=data)
-        return res
+        str_data = [list(map(self._byte_to_str, data_i.tolist())) for data_i in data]
+        int_data = list(map(self._str_to_order, str_data))
+        self.parity_int, self.parity_char = self.gf.gen_parity(data=np.array(int_data))
+        Logger.log_str(log_str='Get the parity:\n{}'.format(self.parity_int))
+        return self.parity_char
 
-
-    def check_corruption(self):
+    def check_corruption(self, disk_data_in_int):
         """
         Detect if single disk occurred silent corruption.
         :return: A boolean, True for failed, False for not.
         """
+        new_parity, _ = self.gf.gen_parity(disk_data_in_int[0:self.config.data_disk_count])
+        Logger.log_str('Check silent corruption\nNew parity is {}'.format(new_parity))
+        Logger.log_str('Old parity is {}'.format(self.parity_int))
+        res = np.bitwise_xor(np.array(self.parity_int), np.array(new_parity))
+        if np.count_nonzero(res) == 0:
+            Logger.log_str('No corruption')
+        else:
+            Logger.log_str('Exist corruption!!!', mode='error')
         pass
 
     def recover_disk(self):
@@ -124,10 +141,34 @@ class RAID_6(RaidController):
         return np.array(data_disk_list)
 
     @staticmethod
-    def _str_to_order(str):
-        res = [ord(str[i]) for i in range(len(str))]
+    def _str_to_order_for_parity(stri):
+        assert isinstance(stri[0], str)
+        res = [ord(stri[i]) if len(stri[i]) > 0 else 0 for i in range(len(stri))]
+        return np.array(res)
+
+    @staticmethod
+    def _str_to_order(stri):
+        assert isinstance(stri[0], str)
+        res = [ord(stri[i]) for i in range(len(stri))]
         return np.array(res)
 
     @staticmethod
     def generate_padding_block(byte_length):
         return bytes([0 for _ in range(byte_length)])
+
+    @staticmethod
+    def _byte_to_str(byte):
+        assert isinstance(byte, bytes)
+        return byte.decode('utf-8')
+
+    @staticmethod
+    def _str_list_to_str(str_list):
+        assert isinstance(str_list[0], str)
+        return "".join(s_i for s_i in str_list)
+
+    @staticmethod
+    def _byte_to_int_all_disk(data, data_disk_count):
+        res = list(map(RAID_6._byte_to_str, data))
+        res = list(map(RAID_6._str_to_order, res[0:data_disk_count])) + \
+              list(map(RAID_6._str_to_order_for_parity, res[data_disk_count:]))
+        return res

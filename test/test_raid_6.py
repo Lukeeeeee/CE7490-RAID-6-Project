@@ -13,17 +13,19 @@ def main():
                     config=conf)
     logical_disk = Disk(disk_path=conf.disk_dir, id=-1, disk_size=conf.logical_disk_size)
 
-    # TODO Random Generate some files
+    # Random Generate some files
     file = File()
     file.random_generate_string(data_size=conf.logical_disk_size)
     logical_disk.write_to_disk(disk=logical_disk, data=file.file_content)
     data_block_list = logical_disk.set_up_data_block_list(block_size=conf.block_size)
 
-    # TODO Load the files into disks by raid 6
+    # Load the files into disks by raid 6
 
     raid_6.write_file(data_block_list=data_block_list)
 
-    # TODO Start the test of raid 6
+    # Start the test of raid 6
+    data = raid_6.read_all_data_disks()
+    raid_6.check_corruption(disk_data_in_int=data)
 
 
 if __name__ == '__main__':

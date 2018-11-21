@@ -38,6 +38,9 @@ class Logger(object):
         pass
 
     @staticmethod
-    def log_str(log_str):
-        logging.info(log_str)
+    def log_str(log_str, mode='info'):
+        if mode == 'info':
+            logging.info(log_str)
+        if mode == 'error':
+            logging.error(log_str)
         print(log_str + '\n')

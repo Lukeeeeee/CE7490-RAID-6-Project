@@ -41,8 +41,8 @@ class Disk(object):
             Logger.log_str(log_str='Data is written into %s' % disk.data_file_path)
 
     @staticmethod
-    def read_from_disk(disk):
-        with open(disk.data_file_path, 'rb') as f:
+    def read_from_disk(disk, mode='rb'):
+        with open(disk.data_file_path, mode) as f:
             return f.read()
 
     def set_up_data_block_list(self, block_size):
