@@ -19,13 +19,18 @@ class Configuration(object):
         while os.path.exists(self.log_dir):
             self.log_dir = os.path.join(LOG_PATH, time.strftime("%Y-%m-%d_%H-%M-%S"))
         os.mkdir(self.log_dir)
-
         os.mkdir(os.path.join(self.log_dir, 'disk'))
         self.disk_dir = os.path.join(self.log_dir, 'disk')
         Logger.log_str(log_str='Experiment log created at %s' % self.log_dir)
         assert self.data_disk_count + self.parity_disk_count == self.disk_count
 
-        self.disk_size = 100000
+        # Disk size means
+        self.disk_size = 10
+        self.logical_disk_size = self.disk_size * self.data_disk_count
+        # Block size better set to be 4 * k
+        self.block_size = 4
+        self.block_num_per_chunk = 1
+        self.chuck_size = self.block_size * self.block_num_per_chunk
 
 
 class Logger(object):

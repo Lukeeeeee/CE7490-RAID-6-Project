@@ -24,22 +24,25 @@ class RAID_6(RaidController):
         self.encode_matrix = self._generate_encode_matrix(identity_num=self.config.data_disk_count,
                                                           check_sum_matrix=self.gf.vandermond)
 
-    def write_file(self, file_content):
+    def write_file(self, data_block_list):
         """
         Write the file to the disks concurrently, firstly computing the parity and concurrently write to all the disks
         :param file_content:
         :return: None
         """
-        data = self._split_content_into_data_disks(data_disks_n=self.config.data_disk_count,
-                                                   file_content=file_content)
-        data_with_parity = np.concatenate([data, self.compute_parity(data=data)], axis=1)
+        data = self._split_block_into_data_disks(data_disks_n=self.config.data_disk_count,
+                                                 data_block=data_block_list,
+                                                 block_count_per_chunk=self.config.block_num_per_chunk)
+        data_with_parity = np.concatenate([data, self.compute_parity(data=data)], axis=0)
 
         # We use parallel writing operation to write the file into disks
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.disk_count) as executor:
-            executor.map(Disk.write_to_disk,
-                         self.disk_list,
-                         data_with_parity.tolist())
+        # with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.disk_count) as executor:
+        #     executor.map(Disk.write_to_disk,
+        #                  self.disk_list,
+        #                  data_with_parity.tolist())
+        for disk, data in zip(self.disk_list, data_with_parity.tolist()):
+            disk.write_to_disk(disk=disk, data="".join(val for val in data), mode='w')
 
     def read_all_data_disks(self, excluded_list=None):
         """
@@ -54,11 +57,13 @@ class RAID_6(RaidController):
         return non_padding_res
 
     def compute_parity(self, data):
-        return self.gf.gen_parity(data=data)
+        res = self.gf.gen_parity(data=data)
+        return res
+
 
     def check_corruption(self):
         """
-        Detect if single disk failed.
+        Detect if single disk occurred silent corruption.
         :return: A boolean, True for failed, False for not.
         """
         pass
@@ -90,24 +95,39 @@ class RAID_6(RaidController):
         # return encode_matrix
         return self.gf.gen_matrix_A()
 
-    def _split_content_into_data_disks(self, data_disks_n, file_content):
+    def _split_block_into_data_disks(self, data_disks_n, data_block, block_count_per_chunk):
         """
-        Strip the data into each data disks
-        :param data_disks_n: A scalar
-        :param file_content: A numpy array with 1 dim or a list
-        :return: A numpy arrary with size [data_disks_n, -1]
+        Split the data block from logical disk into raid data disks
+        :param data_disks_n: total number of data disks in raid 6
+        :param data_block: data blocks from logical disk that will be stripped into raid 6
+        :param block_count_per_chunk: assign how many data blocks to one data disk before moving to the next
+        :return:
         """
-        file_content = np.reshape(file_content, [-1])
-        file_content_length_per_disk = file_content.shape[0] // data_disks_n + \
-                                       0 if file_content.shape[0] % data_disks_n == 0 else 1
-        data_index = 0
+        disk_index = 0
         data_disk_list = [[] for _ in range(data_disks_n)]
-        for d in file_content:
-            data_disk_list[data_index].append(d if isinstance(d, str) else chr(d))
-            data_index = (data_index + 1) % data_disks_n
-        if data_index != 0:
-            for index in range(data_index, data_disks_n):
-                data_disk_list[index].append(0)
+        data_block_per_disk = len(data_block) / data_disks_n
+
+        for i, block_i in enumerate(data_block):
+            data_disk_list[disk_index].append(self._str_to_order(block_i) if isinstance(block_i, str) else block_i)
+            if (i + 1) % block_count_per_chunk == 0:
+                disk_index = (disk_index + 1) % data_disks_n
+
+        padding_block = self.generate_padding_block(byte_length=len(data_block[0]))
+        assert len(padding_block) == len(data_block[0])
+        assert isinstance(padding_block, type(data_block[0]))
+        if disk_index != 0:
+            for index in range(disk_index, data_disks_n):
+                for _ in range(block_count_per_chunk):
+                    data_disk_list[index].append(padding_block)
         for data in data_disk_list:
-            assert len(data) == file_content_length_per_disk
+            assert len(data) == data_block_per_disk
         return np.array(data_disk_list)
+
+    @staticmethod
+    def _str_to_order(str):
+        res = [ord(str[i]) for i in range(len(str))]
+        return np.array(res)
+
+    @staticmethod
+    def generate_padding_block(byte_length):
+        return bytes([0 for _ in range(byte_length)])
