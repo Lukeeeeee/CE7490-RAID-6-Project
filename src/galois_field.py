@@ -69,7 +69,7 @@ class GaloisField(object):
             res.append(self.multiply(a_i, b_i))
         return self.add(res)
 
-    def devide(self, a, b):
+    def divide(self, a, b):
         """
         Function to devide a by b in GF by log table
         :param a: devisor
@@ -91,7 +91,16 @@ class GaloisField(object):
         :param add_list: list of numbers to be added
         :return: the bitwise XOR result of the input list
         """
+        assert isinstance(add_list, list)
         return np.bitwise_xor.reduce(add_list)
+
+    def sub(self, sub_list):
+        """
+        Function to perform subtraction operation in GF which is the same as add
+        :param sub_list:
+        :return:
+        """
+        return self.add(sub_list)
 
     def power(self, a, n):
         """
@@ -127,7 +136,7 @@ class GaloisField(object):
         result_int = []
         for i in range(self.n_checksum):
             vector = []
-            for j in range(data.shape[1]):
+            for j in range(len(data[0])):
                 vector.append(self.multiply_with_vec(data[:, j], self.vandermond[i]))
             result_int.append(vector)
             result_char.append([chr(v_) for v_ in vector])
@@ -155,14 +164,14 @@ class GaloisField(object):
         if len(corrupt_index) > self.n_checksum:
             raise ValueError('corrupted disk number can not be greater than checksum number')
         mat_a = np.delete(mat_a, corrupt_index, axis=0)
-        vec_e = np.delete(vec_e, corrupt_index)
+        vec_e = np.delete(vec_e, corrupt_index, axis=0)
         if len(corrupt_index) == self.n_checksum:
             return mat_a, vec_e
         else:
             for i in range(self.n_checksum - len(corrupt_index)):
                 rand_index = np.random.randint(len(vec_e))
                 mat_a = np.delete(mat_a, rand_index, axis=0)
-                vec_e = np.delete(vec_e, rand_index)
+                vec_e = np.delete(vec_e, rand_index, axis=0)
             return mat_a, vec_e
 
     @staticmethod

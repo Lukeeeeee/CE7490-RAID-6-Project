@@ -31,6 +31,7 @@ class Configuration(object):
         self.block_size = 4
         self.block_num_per_chunk = 1
         self.chuck_size = self.block_size * self.block_num_per_chunk
+        self.char_order_for_zero = 300
 
 
 class Logger(object):

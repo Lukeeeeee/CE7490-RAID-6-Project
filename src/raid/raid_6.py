@@ -22,8 +22,7 @@ class RAID_6(RaidController):
                                   num_checksum=self.config.parity_disk_count)
         else:
             self.gf = gf
-        self.encode_matrix = self._generate_encode_matrix(identity_num=self.config.data_disk_count,
-                                                          check_sum_matrix=self.gf.vandermond)
+        self.encode_matrix = self._generate_encode_matrix()
         self.parity_int = None
         self.parity_char = None
 
@@ -45,7 +44,14 @@ class RAID_6(RaidController):
         #                  self.disk_list,
         #                  data_with_parity.tolist())
         for disk, data in zip(self.disk_list, data_with_parity.tolist()):
-            disk.write_to_disk(disk=disk, data="".join(val for val in data), mode='w')
+            disk.write_to_disk(disk=disk, data="".join(self.no_empty_chr(val) for val in data), mode='w')
+
+    def no_empty_chr(self, val):
+        assert isinstance(val, str)
+        if val == '':
+            return chr(self.config.char_order_for_zero)
+        else:
+            return val
 
     def read_all_data_disks(self, excluded_list=None):
         """
@@ -55,12 +61,15 @@ class RAID_6(RaidController):
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.disk_count) as executor:
             res = list(executor.map(Disk.read_from_disk, self.disk_list))
 
-        res = self._byte_to_int_all_disk(res, data_disk_count=self.config.data_disk_count)
+        res = self._byte_to_int_all_disk(res, data_disk_count=self.config.data_disk_count, conf=self.config)
         data_disks = np.array(res)[0:self.config.data_disk_count]
         non_padding_length = len(data_disks[0])
+        # TODO check the padding method.
         for data in data_disks:
             non_padding_length = min(non_padding_length, np.count_nonzero(data))
-        non_padding_res = np.array([res[i][0:non_padding_length] for i in range(len(res))])
+        non_padding_res = [res[i][0:non_padding_length].tolist() for i in range(len(res))]
+        non_padding_res = np.array(non_padding_res)
+        assert len(non_padding_res.shape) == 2
         return non_padding_res
 
     def compute_parity(self, data):
@@ -85,31 +94,60 @@ class RAID_6(RaidController):
             Logger.log_str('Exist corruption!!!', mode='error')
         pass
 
-    def recover_disk(self):
-        pass
+    def recover_disk(self, corrupted_disk_index=()):
+        Logger.log_str(log_str='Corrupted disks detected: {}'.format(corrupted_disk_index))
+        matrix_a_new, vector_e_new = self.gf.recover_matrix(mat_a=self.encode_matrix,
+                                                            vec_e=self.read_all_data_disks(),
+                                                            corrupt_index=corrupted_disk_index)
+        data_strip_count = vector_e_new.shape[1]
+        new_data = []
+        for i in range(data_strip_count):
+            augmented_matrix = np.concatenate((matrix_a_new, np.reshape(vector_e_new[:, i], [-1, 1])), axis=1)
+            new_data.append(self._gaussian_elimination(augmented_matrix))
+        new_data = np.transpose(new_data)
+        new_parity, _ = self.gf.gen_parity(new_data)
+        Logger.log_str(log_str='Recovered disks: {}'.format(corrupted_disk_index))
+        Logger.log_str('Data is {}'.format(self._int_data_to_string(new_data, non_zero_flag=False)))
+        Logger.log_str('Parity is {}'.format(new_parity))
 
     def update_data(self):
         # TODO
         pass
 
-    def _gaussian_elimination(self, corrupted_disk_index):
+    def _gaussian_elimination(self, augmented_matrix):
         """
         Function to recover the disks using the gaussian elimination method
-        :param corrupted_disk_index: the disks' index list that were corrupted which should be less than m
-        :return: recovered data disks content
+        :param augmented_matrix: augmented matrix in gaussian elimination process
+        :return:
         """
-        # matrix_a_new, vector_e_new = self.gf.recover_matrix(mat_A=)
+        rows = np.array(augmented_matrix).shape[0]
+        eliminated_flag = [False for _ in range(rows)]
+        for i in range(rows):
+            if np.sum(eliminated_flag) == rows:
+                break
+            find_index = 0
+            while eliminated_flag[find_index] is True or augmented_matrix[i][find_index] == 0:
+                find_index += 1
+            eliminated_flag[find_index] = True
+            for j in range(rows):
+                if j != i and augmented_matrix[j][find_index] != 0:
+                    value_i = augmented_matrix[i][find_index]
+                    value_j = augmented_matrix[j][find_index]
+                    for k in range(len(augmented_matrix[i])):
+                        tmp_i_val = self.gf.multiply(augmented_matrix[i][k], value_j)
+                        augmented_matrix[j][k] = self.gf.multiply(augmented_matrix[j][k], value_i)
+                        augmented_matrix[j][k] = self.gf.sub([augmented_matrix[j][k],
+                                                              tmp_i_val])
+                    assert augmented_matrix[j][find_index] == 0
+        res = [0 for _ in range(rows)]
+        for i in range(rows):
+            assert np.count_nonzero(augmented_matrix[i][0:rows]) >= 1
+            res[np.nonzero(augmented_matrix[i])[0][0]] = self.gf.divide(augmented_matrix[i][-1],
+                                                                        augmented_matrix[i][
+                                                                            np.nonzero(augmented_matrix[i])[0][0]])
+        return res
 
-    def _generate_encode_matrix(self, identity_num, check_sum_matrix):
-        # check_sum_matrix = np.asarray(check_sum_matrix)
-        # assert check_sum_matrix.shape[0] == self.config.parity_disk_count
-        # assert check_sum_matrix.shape[1] == self.config.data_disk_count
-        #
-        # encode_matrix = np.zeros([identity_num, self.config.data_disk_count])
-        # for i in range(self.config.data_disk_count):
-        #     encode_matrix[i][i] = 1
-        # encode_matrix = np.concatenate([encode_matrix, check_sum_matrix], axis=1)
-        # return encode_matrix
+    def _generate_encode_matrix(self):
         return self.gf.gen_matrix_A()
 
     def _split_block_into_data_disks(self, data_disks_n, data_block, block_count_per_chunk):
@@ -141,9 +179,12 @@ class RAID_6(RaidController):
         return np.array(data_disk_list)
 
     @staticmethod
-    def _str_to_order_for_parity(stri):
+    def _str_to_order_for_parity(stri, zero_flag):
         assert isinstance(stri[0], str)
         res = [ord(stri[i]) if len(stri[i]) > 0 else 0 for i in range(len(stri))]
+        for i, re in enumerate(res):
+            if re == zero_flag:
+                res[i] = 0
         return np.array(res)
 
     @staticmethod
@@ -167,8 +208,19 @@ class RAID_6(RaidController):
         return "".join(s_i for s_i in str_list)
 
     @staticmethod
-    def _byte_to_int_all_disk(data, data_disk_count):
+    def _byte_to_int_all_disk(data, data_disk_count, conf):
         res = list(map(RAID_6._byte_to_str, data))
         res = list(map(RAID_6._str_to_order, res[0:data_disk_count])) + \
-              list(map(RAID_6._str_to_order_for_parity, res[data_disk_count:]))
+              list(map(RAID_6._str_to_order_for_parity, res[data_disk_count:],
+                       [conf.char_order_for_zero for _ in range(len(res) - data_disk_count)]))
+
         return res
+
+    def _int_data_to_string(self, data, non_zero_flag):
+        data = np.transpose(np.array(data))
+        data = np.reshape(data, [-1])
+        if non_zero_flag:
+            str = "".join(self.no_empty_chr(val) for val in data)
+        else:
+            str = "".join(chr(val) for val in data)
+        return str

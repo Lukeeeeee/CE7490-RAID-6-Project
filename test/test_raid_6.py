@@ -27,6 +27,9 @@ def main():
     data = raid_6.read_all_data_disks()
     raid_6.check_corruption(disk_data_in_int=data)
 
+    # Start to do the recover test
+    raid_6.recover_disk(corrupted_disk_index=(3, 2))
+
 
 if __name__ == '__main__':
     main()

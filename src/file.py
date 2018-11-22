@@ -3,6 +3,7 @@ import sys
 import glob
 import numpy as np
 import string
+from src.util import Logger, Configuration
 
 
 class File(object):
@@ -23,6 +24,7 @@ class File(object):
 
     def random_generate_string(self, data_size):
         self.file_content = np.random.choice(list(string.ascii_letters), size=data_size)
+        Logger.log_str(log_str='Random generate a string: {}'.format(self.file_content.decode('utf-8')))
 
     def read_from_path(self, data_path):
         pass
