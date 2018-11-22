@@ -10,6 +10,7 @@ import functools
 import os
 import concurrent.futures
 from src.util import Logger
+import math
 
 
 class RAID_6(RaidController):
@@ -62,15 +63,15 @@ class RAID_6(RaidController):
             res = list(executor.map(Disk.read_from_disk, self.disk_list))
 
         res = self._byte_to_int_all_disk(res, data_disk_count=self.config.data_disk_count, conf=self.config)
-        data_disks = np.array(res)[0:self.config.data_disk_count]
-        non_padding_length = len(data_disks[0])
-        # TODO check the padding method.
-        for data in data_disks:
-            non_padding_length = min(non_padding_length, np.count_nonzero(data))
-        non_padding_res = [res[i][0:non_padding_length].tolist() for i in range(len(res))]
-        non_padding_res = np.array(non_padding_res)
-        assert len(non_padding_res.shape) == 2
-        return non_padding_res
+        # data_disks = np.array(res)[0:self.config.data_disk_count]
+        # non_padding_length = len(data_disks[0])
+        # # TODO check the padding method.
+        # for data in data_disks:
+        #     non_padding_length = min(non_padding_length, np.count_nonzero(data))
+        # non_padding_res = [res[i][0:non_padding_length].tolist() for i in range(len(res))]
+        # non_padding_res = np.array(non_padding_res)
+        # assert len(non_padding_res.shape) == 2
+        return res
 
     def compute_parity(self, data):
         str_data = [list(map(self._byte_to_str, data_i.tolist())) for data_i in data]
@@ -160,19 +161,19 @@ class RAID_6(RaidController):
         """
         disk_index = 0
         data_disk_list = [[] for _ in range(data_disks_n)]
-        data_block_per_disk = len(data_block) / data_disks_n
-
+        data_block_per_disk = math.ceil(len(data_block) / data_disks_n)
         for i, block_i in enumerate(data_block):
             data_disk_list[disk_index].append(self._str_to_order(block_i) if isinstance(block_i, str) else block_i)
             if (i + 1) % block_count_per_chunk == 0:
                 disk_index = (disk_index + 1) % data_disks_n
 
-        padding_block = self.generate_padding_block(byte_length=len(data_block[0]))
+        padding_block = self.generate_padding_block(byte_length=len(data_block[0]),
+                                                    zero_int=self.config.char_order_for_zero)
         assert len(padding_block) == len(data_block[0])
         assert isinstance(padding_block, type(data_block[0]))
-        if disk_index != 0:
-            for index in range(disk_index, data_disks_n):
-                for _ in range(block_count_per_chunk):
+        for index, data in enumerate(data_disk_list):
+            if len(data) < data_block_per_disk:
+                for _ in range(data_block_per_disk - len(data)):
                     data_disk_list[index].append(padding_block)
         for data in data_disk_list:
             assert len(data) == data_block_per_disk
@@ -190,12 +191,13 @@ class RAID_6(RaidController):
     @staticmethod
     def _str_to_order(stri):
         assert isinstance(stri[0], str)
-        res = [ord(stri[i]) for i in range(len(stri))]
+        res = [ord(stri[i]) if len(stri[i]) > 0 else 0 for i in range(len(stri))]
         return np.array(res)
 
     @staticmethod
-    def generate_padding_block(byte_length):
-        return bytes([0 for _ in range(byte_length)])
+    def generate_padding_block(byte_length, zero_int):
+        assert byte_length % 4 == 0
+        return np.array(['' for _ in range(byte_length // 4)]).tostring()
 
     @staticmethod
     def _byte_to_str(byte):
@@ -210,9 +212,7 @@ class RAID_6(RaidController):
     @staticmethod
     def _byte_to_int_all_disk(data, data_disk_count, conf):
         res = list(map(RAID_6._byte_to_str, data))
-        res = list(map(RAID_6._str_to_order, res[0:data_disk_count])) + \
-              list(map(RAID_6._str_to_order_for_parity, res[data_disk_count:],
-                       [conf.char_order_for_zero for _ in range(len(res) - data_disk_count)]))
+        res = list(map(RAID_6._str_to_order_for_parity, res, [conf.char_order_for_zero for _ in range(len(res))]))
 
         return res
 

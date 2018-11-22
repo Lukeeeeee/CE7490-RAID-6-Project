@@ -132,6 +132,7 @@ class GaloisField(object):
         :param data: 1d array of data bytes
         :return:  1d array of checksums
         """
+        data = np.array(data)
         result_char = []
         result_int = []
         for i in range(self.n_checksum):

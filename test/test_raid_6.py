@@ -15,7 +15,7 @@ def main():
 
     # Random Generate some files
     file = File()
-    file.random_generate_string(data_size=conf.logical_disk_size)
+    file.random_generate_string(data_size=conf.logical_disk_size - 11)
     logical_disk.write_to_disk(disk=logical_disk, data=file.file_content)
     data_block_list = logical_disk.set_up_data_block_list(block_size=conf.block_size)
 
@@ -28,7 +28,7 @@ def main():
     raid_6.check_corruption(disk_data_in_int=data)
 
     # Start to do the recover test
-    raid_6.recover_disk(corrupted_disk_index=(3, 2))
+    raid_6.recover_disk(corrupted_disk_index=(6, 7))
 
 
 if __name__ == '__main__':
