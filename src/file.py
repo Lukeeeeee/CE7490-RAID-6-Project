@@ -4,6 +4,7 @@ import glob
 import numpy as np
 import string
 from src.util import Logger, Configuration
+from copy import deepcopy
 
 
 class File(object):
@@ -24,7 +25,7 @@ class File(object):
 
     def random_generate_string(self, data_size):
         self.file_content = np.random.choice(list(string.ascii_letters), size=data_size)
-        Logger.log_str(log_str='Random generate a string: {}'.format(self.file_content.decode('utf-8')))
+        Logger.log_str(log_str='Random generate a string: {}'.format(str(self.file_content.decode('utf-8'))))
 
     def read_from_path(self, data_path):
         pass
@@ -33,3 +34,10 @@ class File(object):
     def byte_to_string(bytes_data):
         assert isinstance(bytes_data, bytes)
         return str(bytes_data.decode('utf-8'))
+
+    def update(self, index, new_char):
+        assert index < len(self._file_content)
+        old_file = deepcopy(self._file_content)
+        self._file_content[index] = new_char
+        Logger.log_str('File is updated from: \n{} \nto \n{}'.
+                       format("".join(val for val in old_file), "".join(val for val in self._file_content)))

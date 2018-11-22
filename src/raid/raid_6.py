@@ -11,6 +11,7 @@ import os
 import concurrent.futures
 from src.util import Logger
 import math
+from copy import deepcopy
 
 
 class RAID_6(RaidController):
@@ -26,6 +27,8 @@ class RAID_6(RaidController):
         self.encode_matrix = self._generate_encode_matrix()
         self.parity_int = None
         self.parity_char = None
+        self.block_to_disk_map = None
+        self.data_block_list = None
 
     def write_file(self, data_block_list):
         """
@@ -33,6 +36,7 @@ class RAID_6(RaidController):
         :param file_content:
         :return: None
         """
+        self.data_block_list = data_block_list
         data = self._split_block_into_data_disks(data_disks_n=self.config.data_disk_count,
                                                  data_block=data_block_list,
                                                  block_count_per_chunk=self.config.block_num_per_chunk)
@@ -61,8 +65,7 @@ class RAID_6(RaidController):
         """
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.disk_count) as executor:
             res = list(executor.map(Disk.read_from_disk, self.disk_list))
-
-        res = self._byte_to_int_all_disk(res, data_disk_count=self.config.data_disk_count, conf=self.config)
+        res = self._byte_to_int_all_disk(res, conf=self.config)
         # data_disks = np.array(res)[0:self.config.data_disk_count]
         # non_padding_length = len(data_disks[0])
         # # TODO check the padding method.
@@ -106,14 +109,40 @@ class RAID_6(RaidController):
             augmented_matrix = np.concatenate((matrix_a_new, np.reshape(vector_e_new[:, i], [-1, 1])), axis=1)
             new_data.append(self._gaussian_elimination(augmented_matrix))
         new_data = np.transpose(new_data)
-        new_parity, _ = self.gf.gen_parity(new_data)
+        self.parity_int, self.parity_char = self.gf.gen_parity(new_data)
         Logger.log_str(log_str='Recovered disks: {}'.format(corrupted_disk_index))
-        Logger.log_str('Data is {}'.format(self._int_data_to_string(new_data, non_zero_flag=False)))
-        Logger.log_str('Parity is {}'.format(new_parity))
+        new_data = self._int_data_to_chr(data=new_data)
+        data_with_parity = np.concatenate([new_data, self.parity_char], axis=0)
+        for disk, data in zip(self.disk_list, data_with_parity.tolist()):
+            disk.write_to_disk(disk=disk, data="".join(self.no_empty_chr(val) for val in data), mode='w')
+        Logger.log_str('Recovered data is written to disk')
 
-    def update_data(self):
-        # TODO
-        pass
+    def update_data(self, block_global_index, new_data_block):
+        disk_id, chuck_id = self.block_to_disk_map[block_global_index]
+        self.data_block_list[block_global_index] = new_data_block
+        str_data = self._byte_to_str(new_data_block)
+        int_data = self._str_to_order(str_data)[0]
+        parity_int, parity_char = self.gf.gen_parity(data=np.array(int_data).reshape([1, -1]))
+        Logger.log_str(log_str='Get the parity:\n{}'.format(self.parity_int))
+        parity_char = parity_char.reshape([-1])
+        parity_int = parity_int.reshape([-1])
+        for i in range(self.config.parity_disk_count):
+            self.parity_int[i][chuck_id] = parity_int[i]
+            self.parity_char[i][chuck_id] = parity_char[i]
+        Logger.log_str(log_str='Get the updated parity:\n{}'.format(self.parity_int))
+        for i in range(self.config.data_disk_count, self.config.disk_count):
+            disk = self.disk_list[i]
+            disk.write_to_disk(disk=disk, data="".join(
+                self.no_empty_chr(val) for val in self.parity_char[i - self.config.data_disk_count]), mode='w')
+        disk = self.disk_list[disk_id]
+
+        old_data_block = disk.read_from_disk(disk=disk)
+        res = self._byte_to_str(old_data_block)
+        new_res = list(deepcopy(res))
+        new_res[chuck_id] = self._byte_to_str(new_data_block)[0]
+        new_res = "".join(new_res)
+        disk.write_to_disk(disk=disk, data="".join(self.no_empty_chr(val) for val in new_res),
+                           mode='w')
 
     def _gaussian_elimination(self, augmented_matrix):
         """
@@ -159,11 +188,14 @@ class RAID_6(RaidController):
         :param block_count_per_chunk: assign how many data blocks to one data disk before moving to the next
         :return:
         """
+
+        self.block_to_disk_map = [None for _ in range(len(data_block))]
         disk_index = 0
         data_disk_list = [[] for _ in range(data_disks_n)]
         data_block_per_disk = math.ceil(len(data_block) / data_disks_n)
         for i, block_i in enumerate(data_block):
             data_disk_list[disk_index].append(self._str_to_order(block_i) if isinstance(block_i, str) else block_i)
+            self.block_to_disk_map[i] = (disk_index, len(data_disk_list[disk_index]) - 1)
             if (i + 1) % block_count_per_chunk == 0:
                 disk_index = (disk_index + 1) % data_disks_n
 
@@ -210,10 +242,9 @@ class RAID_6(RaidController):
         return "".join(s_i for s_i in str_list)
 
     @staticmethod
-    def _byte_to_int_all_disk(data, data_disk_count, conf):
+    def _byte_to_int_all_disk(data, conf):
         res = list(map(RAID_6._byte_to_str, data))
         res = list(map(RAID_6._str_to_order_for_parity, res, [conf.char_order_for_zero for _ in range(len(res))]))
-
         return res
 
     def _int_data_to_string(self, data, non_zero_flag):
@@ -224,3 +255,18 @@ class RAID_6(RaidController):
         else:
             str = "".join(chr(val) for val in data)
         return str
+
+    @staticmethod
+    def _int_data_to_chr(data):
+        data = np.array(data).tolist()
+        data = [list(map(chr, data_i)) for data_i in data]
+        return data
+
+    def read_from_disk_and_generate_data(self):
+        res = self.read_all_data_disks()
+        res = [re.tolist() for re in res][0:self.config.data_disk_count]
+        new_res = []
+        for i, j in self.block_to_disk_map:
+            new_res.append(res[i][j])
+        Logger.log_str(
+            'Data is {}'.format(self._int_data_to_string(new_res, non_zero_flag=False)))
