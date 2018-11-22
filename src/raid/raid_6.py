@@ -167,8 +167,7 @@ class RAID_6(RaidController):
             if (i + 1) % block_count_per_chunk == 0:
                 disk_index = (disk_index + 1) % data_disks_n
 
-        padding_block = self.generate_padding_block(byte_length=len(data_block[0]),
-                                                    zero_int=self.config.char_order_for_zero)
+        padding_block = self.generate_padding_block(byte_length=len(data_block[0]))
         assert len(padding_block) == len(data_block[0])
         assert isinstance(padding_block, type(data_block[0]))
         for index, data in enumerate(data_disk_list):
@@ -195,7 +194,7 @@ class RAID_6(RaidController):
         return np.array(res)
 
     @staticmethod
-    def generate_padding_block(byte_length, zero_int):
+    def generate_padding_block(byte_length):
         assert byte_length % 4 == 0
         return np.array(['' for _ in range(byte_length // 4)]).tostring()
 
