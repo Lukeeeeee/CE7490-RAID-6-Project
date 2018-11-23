@@ -31,9 +31,25 @@ class Configuration(object):
         self.logical_disk_size = self.disk_size * self.data_disk_count
         # Block size better set to be 4 * k
         self.block_size = 4
+
+        assert self.block_size % 4 == 0
+
         self.block_num_per_chunk = 2
         self.chuck_size = self.block_size * self.block_num_per_chunk
         self.char_order_for_zero = 300
+
+        logging.basicConfig(level=logging.DEBUG,
+                            filename=self.log_dir + '/test.log',
+                            filemode='w')
+
+    def log_out(self):
+        Logger.log_str("Disk count is %d" % self.disk_count)
+        Logger.log_str("Data disk count is %d" % self.data_disk_count)
+        Logger.log_str("Parity disk count is %d" % self.parity_disk_count)
+        Logger.log_str("Logical disk size is %d" % self.logical_disk_size)
+        Logger.log_str("RAID 6 Disk size is %d" % self.disk_size)
+        Logger.log_str("Block size is %d" % self.block_size)
+        Logger.log_str("Block number per chunk is %d" % self.block_num_per_chunk)
 
 
 class Logger(object):
@@ -42,8 +58,9 @@ class Logger(object):
 
     @staticmethod
     def log_str(log_str, mode='info'):
+        logger = logging.getLogger('RAID-6 log')
         if mode == 'info':
-            logging.info(log_str)
+            logger.info(log_str)
         if mode == 'error':
-            logging.error(log_str)
+            logger.error(log_str)
         print(log_str + '\n')
