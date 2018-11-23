@@ -16,13 +16,13 @@ source activate raid6
 ```
 
 ### Run the test
-The source code is placed at `/src`, and the test script is placed at `/test`
-Test the raid 6: 
+The source code is placed at `/src`, and the test script is placed at `/test`.
+To test the raid 6: 
 ```
 cd /path/to/CE7490-RAID-6-Project
 source activate raid6
 python test/test_raid_6.py
 ```
 The log will be printed to the console, also a log directory will be created at `/log` with a timestamp 
-(e.g., `/log/2018-11-23_10-51-30`). And in the log directory, the `diks` is the virtual representation of the real disks
+(e.g., `/log/2018-11-23_10-51-30`). And in the log directory, the `disk` is the virtual representation of the real disks
 and `test.log` contains the same output of the console for recording.
