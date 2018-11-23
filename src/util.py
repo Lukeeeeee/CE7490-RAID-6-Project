@@ -15,9 +15,9 @@ class Configuration(object):
     A class that hold all RAID 6 related configuration and parameters.
     """
     def __init__(self):
-        self.disk_count = 8
+        self.disk_count = 10
         self.data_disk_count = 6
-        self.parity_disk_count = 2
+        self.parity_disk_count = 4
         self.log_dir = os.path.join(LOG_PATH, time.strftime("%Y-%m-%d_%H-%M-%S"))
 
         while os.path.exists(self.log_dir):
@@ -52,11 +52,11 @@ class Configuration(object):
         Logger.log_str("Disk count is %d" % self.disk_count)
         Logger.log_str("Data disk count is %d" % self.data_disk_count)
         Logger.log_str("Parity disk count is %d" % self.parity_disk_count)
-        Logger.log_str("Logical disk size is %d" % self.logical_disk_size)
-        Logger.log_str("RAID 6 Disk size is %d" % self.disk_size)
-        Logger.log_str("Block size is %d" % self.block_size)
+        Logger.log_str("Logical disk size (char) is %d" % self.logical_disk_size)
+        Logger.log_str("RAID 6 Disk size (char) is %d" % self.disk_size)
+        Logger.log_str("Block size (byte) is %d" % self.block_size)
         Logger.log_str("Block number per chunk is %d" % self.block_num_per_chunk)
-        Logger.log_str("Random file size is %d" % self.random_file_size)
+        Logger.log_str("Random file size (char) is %d" % self.random_file_size)
 
 
 class Logger(object):

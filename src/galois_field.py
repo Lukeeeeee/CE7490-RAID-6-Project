@@ -124,7 +124,7 @@ class GaloisField(object):
         """
         for i in range(self.n_checksum):
             for j in range(self.n_data_disk):
-                self.vandermond[i][j] = self.power(j, i)
+                self.vandermond[i][j] = self.power(j + 1, i)
 
     def gen_parity(self, data):
         """
