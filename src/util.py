@@ -41,6 +41,9 @@ class Configuration(object):
         self.chuck_size = self.block_size * self.block_num_per_chunk
         self.char_order_for_zero = 300
 
+        self.random_file_size = self.logical_disk_size - 20
+        assert self.random_file_size <= self.logical_disk_size
+
         logging.basicConfig(level=logging.DEBUG,
                             filename=self.log_dir + '/test.log',
                             filemode='w')
@@ -53,6 +56,7 @@ class Configuration(object):
         Logger.log_str("RAID 6 Disk size is %d" % self.disk_size)
         Logger.log_str("Block size is %d" % self.block_size)
         Logger.log_str("Block number per chunk is %d" % self.block_num_per_chunk)
+        Logger.log_str("Random file size is %d" % self.random_file_size)
 
 
 class Logger(object):

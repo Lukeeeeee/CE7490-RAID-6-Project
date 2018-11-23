@@ -224,7 +224,6 @@ class RAID_6(RaidController):
         self.block_to_disk_map = [None for _ in range(len(data_block))]
         disk_index = 0
         data_disk_list = [[] for _ in range(data_disks_n)]
-        data_block_per_disk = math.ceil(len(data_block) / data_disks_n)
         for i, block_i in enumerate(data_block):
             data_disk_list[disk_index].append(self._str_to_order(block_i) if isinstance(block_i, str) else block_i)
             self.block_to_disk_map[i] = (disk_index, len(data_disk_list[disk_index]) - 1)
@@ -234,6 +233,10 @@ class RAID_6(RaidController):
         padding_block = self.generate_padding_block(byte_length=len(data_block[0]))
         assert len(padding_block) == len(data_block[0])
         assert isinstance(padding_block, type(data_block[0]))
+        data_block_per_disk = 0
+        for data in data_disk_list:
+            data_block_per_disk = max(data_block_per_disk, len(data))
+
         for index, data in enumerate(data_disk_list):
             if len(data) < data_block_per_disk:
                 for _ in range(data_block_per_disk - len(data)):

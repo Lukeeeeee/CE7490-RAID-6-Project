@@ -34,7 +34,7 @@ def main():
     # Random Generate some files and store into logical disk
 
     file = File()
-    file.random_generate_string(data_size=conf.logical_disk_size - 11)
+    file.random_generate_string(data_size=conf.random_file_size)
     logical_disk.write_to_disk(disk=logical_disk, data=file.file_content)
     data_block_list = logical_disk.set_up_data_block_list(block_size=conf.block_size)
 
