@@ -1,4 +1,7 @@
 class RaidController(object):
+    """
+    Base class for different raid level controllers
+    """
     def __init__(self, raid_level, disk_list):
         self.raid_level = raid_level
         self.disk_list = disk_list

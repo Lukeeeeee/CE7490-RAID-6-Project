@@ -27,12 +27,6 @@ class Disk(object):
         Logger.log_str(log_str=str('Disk %d is created at %s' % (self.id, disk_path)))
         return disk_path
 
-    def load_file_from_disk(self):
-        return None
-
-    def detect_corruption(self):
-        return False
-
     @staticmethod
     def write_to_disk(disk, data, mode='wb'):
         with open(os.path.join(disk.disk_path, 'data'), mode) as f:

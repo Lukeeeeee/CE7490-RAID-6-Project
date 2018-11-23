@@ -165,7 +165,8 @@ class GaloisField(object):
         if len(corrupt_index) > self.n_checksum:
             raise ValueError('corrupted disk number can not be greater than checksum number')
         mat_a = np.delete(mat_a, corrupt_index, axis=0)
-        vec_e = np.delete(vec_e, corrupt_index, axis=0)
+        vec_e = np.delete(vec_e, (), axis=0)
+        assert len(mat_a) == len(vec_e)
         if len(corrupt_index) == self.n_checksum:
             return mat_a, vec_e
         else:
@@ -176,10 +177,10 @@ class GaloisField(object):
             return mat_a, vec_e
 
     @staticmethod
-    def i2P(sInt):
+    def int_to_polynomia(int_val):
         """
         Convert an integer into a polynomia
-        :param sInt: integer
+        :param int_val: integer
         :return: polynomial patameters
         """
-        return [(sInt >> i) & 1 for i in reversed(range(sInt.bit_length()))]
+        return [(int_val >> i) & 1 for i in reversed(range(int_val.bit_length()))]

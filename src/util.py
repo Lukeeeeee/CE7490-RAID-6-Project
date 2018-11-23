@@ -11,6 +11,9 @@ __all__ = ['Configuration', 'Logger']
 
 
 class Configuration(object):
+    """
+    A class that hold all RAID 6 related configuration and parameters.
+    """
     def __init__(self):
         self.disk_count = 8
         self.data_disk_count = 6
@@ -53,6 +56,9 @@ class Configuration(object):
 
 
 class Logger(object):
+    """
+    A simple logging module
+    """
     def __init__(self):
         pass
 

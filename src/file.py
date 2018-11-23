@@ -27,15 +27,19 @@ class File(object):
         self.file_content = np.random.choice(list(string.ascii_letters), size=data_size)
         Logger.log_str(log_str='Random generate a string: {}'.format(str(self.file_content.decode('utf-8'))))
 
-    def read_from_path(self, data_path):
-        pass
-
     @staticmethod
     def byte_to_string(bytes_data):
         assert isinstance(bytes_data, bytes)
         return str(bytes_data.decode('utf-8'))
 
     def update(self, index, new_char):
+        """
+        Update the file at a certain index with new char. This method is only used for class attributes maintain,
+        and is not part of the RAID 6 process
+        :param index:
+        :param new_char:
+        :return:
+        """
         assert index < len(self._file_content)
         old_file = deepcopy(self._file_content)
         self._file_content[index] = new_char

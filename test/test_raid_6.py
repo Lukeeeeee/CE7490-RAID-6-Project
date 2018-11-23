@@ -1,15 +1,25 @@
+import sys
+import os
+import sys
+
+CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(CURRENT_PATH)
+PAR_PATH = os.path.abspath(os.path.join(CURRENT_PATH, os.pardir))
+sys.path.append(PAR_PATH)
+
 from src.raid.raid_6 import RAID_6
 from src.file import File
 from src.disk import Disk
-from src.util import Configuration
-import logging
+from src.util import Configuration, Logger
 
 
 def main():
+
     # Set up the configuration
 
     conf = Configuration()
     conf.log_out()
+    Logger.log_str("-----------------Set up the RAID 6 system-----------------")
 
     # Set up the RAID 6 disks and RAID 6 disk controller
 
@@ -29,20 +39,30 @@ def main():
     data_block_list = logical_disk.set_up_data_block_list(block_size=conf.block_size)
 
     # Load the data block from logical disk into RAID 6
+    Logger.log_str("-----------------Write the file to RAID 6-----------------")
 
     raid_6.write_file(data_block_list=data_block_list)
     raid_6.read_from_disk_and_generate_data()
+
+    Logger.log_str("-----------------Test silent corruption-----------------")
 
     # Start the test of raid 6
     data = raid_6.read_all_data_disks()
     raid_6.check_corruption(disk_data_in_int=data)
 
+    Logger.log_str("-----------------Test data recovery-----------------")
     # Start to do the recover test
+    corrupted_disk_list = (6, 7)
+    for disk_id in corrupted_disk_list:
+        with open(file=os.path.join(raid_6.disk_list[disk_id].disk_path, 'data'), mode='w') as f:
+            f.write("")
+            Logger.log_str('Disk {}\'s data is erased'.format(disk_id))
 
     raid_6.recover_disk(corrupted_disk_index=(6, 7))
     raid_6.read_from_disk_and_generate_data()
 
     # Update one char in file and re-generate
+    Logger.log_str("-----------------Test data update-----------------")
 
     file.update(index=0, new_char='t')
     logical_disk.write_to_disk(disk=logical_disk, data=file.file_content)

@@ -13,6 +13,9 @@ from copy import deepcopy
 
 
 class RAID_6(RaidController):
+    """
+    RADI 6 controller, inherited from Raid Controller
+    """
     def __init__(self, disk_list, config, gf=None):
         super().__init__(6, disk_list)
         self.config = config
@@ -55,16 +58,21 @@ class RAID_6(RaidController):
         else:
             return val
 
-    def read_all_data_disks(self):
+    def read_all_data_disks(self, corrupted_disk_index=()):
         """
         Read the disks concurrently to a numpy array.
         :return: Data from all the disks
         """
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.config.disk_count) as executor:
             res = list(executor.map(Disk.read_from_disk, self.disk_list))
-        res = self._byte_to_int_all_disk(res, conf=self.config)
 
-        return res
+        removed_res = []
+        for i, re in enumerate(res):
+            if i not in corrupted_disk_index:
+                removed_res.append(re)
+        removed_res = self._byte_to_int_all_disk(removed_res, conf=self.config)
+
+        return removed_res
 
     def compute_parity(self, data):
         """
@@ -103,7 +111,7 @@ class RAID_6(RaidController):
 
         # Retrieve the good disks data: vector_e_new and corresponding encode matrix rows: matrix_a_new
         matrix_a_new, vector_e_new = self.gf.recover_matrix(mat_a=self.encode_matrix,
-                                                            vec_e=self.read_all_data_disks(),
+                                                            vec_e=self.read_all_data_disks(corrupted_disk_index),
                                                             corrupt_index=corrupted_disk_index)
         data_strip_count = vector_e_new.shape[1]
         new_data = []
@@ -117,8 +125,9 @@ class RAID_6(RaidController):
         new_data = self._int_data_to_chr(data=new_data)
         data_with_parity = np.concatenate([new_data, self.parity_char], axis=0)
         # Write the recovered data to disks
-        for disk, data in zip(self.disk_list, data_with_parity.tolist()):
-            disk.write_to_disk(disk=disk, data="".join(self.no_empty_chr(val) for val in data), mode='w')
+        for i, disk, data in zip(range(self.config.disk_count), self.disk_list, data_with_parity.tolist()):
+            if i in corrupted_disk_index:
+                disk.write_to_disk(disk=disk, data="".join(self.no_empty_chr(val) for val in data), mode='w')
         Logger.log_str('Recovered data is written to disk')
 
     def update_data(self, block_global_index, new_data_block):
