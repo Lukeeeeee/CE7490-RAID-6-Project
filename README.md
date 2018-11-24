@@ -9,7 +9,7 @@ Firstly, install [Anaconda 3.7](https://www.anaconda.com/download/#linux) in you
 Then clone this repo and create the environment by:
 ```
 git clone https://github.com/Lukeeeeee/CE7490-RAID-6-Project
-cd CE7490-RAID-6-Project
+cd /path/to/E7490-RAID-6-Project
 conda env create -f environment.yml
 ```
 Test if you create the environment correctly:
