@@ -3,7 +3,7 @@
 This repository holds the RAID 6 project for CE7490 Advanced Topics in Distributed Systems for Fall 2018 NTU.
 
 ### Installation Guide
-The code was developed under Ubuntu and is not applicable on Windows.
+The code was developed under Ubuntu and some of the installation configurations may not applicable on Windows.
 We give the installation guide on Ubuntu 16.04 system, for others, a similar process can be applied.
 Firstly, install [Anaconda 3.7](https://www.anaconda.com/download/#linux) in your PC. 
 Then clone this repo and create the environment by:
